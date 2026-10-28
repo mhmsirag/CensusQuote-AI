@@ -1,0 +1,6 @@
+{
+  "name": "CensusQuote AI",
+  "description": "SME Census-to-Quote Automation Concept Prototype for the Cigna Quote in Seconds Challenge",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
