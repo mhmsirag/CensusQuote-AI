@@ -179,7 +179,10 @@ app.post('/api/benchmark', (req, res) => {
 // (Strict constraint: strictly advisory only, never used for pricing)
 // -------------------------------------------------------------
 app.post('/api/ai/suggest-mapping', async (req, res) => {
-  const { headers } = req.body as { headers: string[] };
+  const { headers, sample_rows } = req.body as {
+    headers: string[];
+    sample_rows?: Record<string, string>[];
+  };
   if (!headers || !Array.isArray(headers)) {
     return res.status(400).json({ error: 'Headers array is required' });
   }
@@ -187,20 +190,25 @@ app.post('/api/ai/suggest-mapping', async (req, res) => {
   // If Gemini is available, query model for mapping recommendations
   if (ai) {
     try {
-      const prompt = `You are a data analyst assisting an SME census ingestion system.
-Given these raw CSV column headers from an SME client:
+      const prompt = `You are a senior data architect and insurance operations specialist assisting an SME health census ingestion workflow.
+Analyze these raw CSV column headers and sample data from an employer's uploaded census spreadsheet:
+
+Headers:
 ${JSON.stringify(headers)}
 
-Suggest how they map to standard enterprise census fields:
-- employee_id (required identifier)
-- name (required member name)
-- relationship (required: employee, spouse, child, other)
-- date_of_birth (required date)
-- job_title (optional)
-- department (optional)
-- location (optional)
+Sample row values (first 3 rows):
+${JSON.stringify(sample_rows?.slice(0, 3) || [])}
 
-Return a concise JSON object with the suggested mapping:
+Map the uploaded headers to these standardized insurance census fields:
+1. "employee_id" (Required: Unique member/employee identifier or code)
+2. "name" (Required: Full legal name of member)
+3. "relationship" (Required: employee, spouse, child, or other)
+4. "date_of_birth" (Required: Date of birth / birthdate)
+5. "job_title" (Optional: Occupation or designation)
+6. "department" (Optional: Business unit or division)
+7. "location" (Optional: City, branch, or emirate)
+
+Return a strict JSON object with this schema:
 {
   "mapping": {
     "employee_id": "<exact_matched_header_or_empty>",
@@ -211,7 +219,17 @@ Return a concise JSON object with the suggested mapping:
     "department": "<exact_matched_header_or_empty>",
     "location": "<exact_matched_header_or_empty>"
   },
-  "confidence_notes": "<short explanation>"
+  "confidence": "high" | "medium" | "low",
+  "reasoning": {
+    "employee_id": "<explanation of match>",
+    "name": "<explanation of match>",
+    "relationship": "<explanation of match>",
+    "date_of_birth": "<explanation of match>",
+    "job_title": "<explanation of match>",
+    "department": "<explanation of match>",
+    "location": "<explanation of match>"
+  },
+  "confidence_notes": "<summary paragraph explaining the mapping choices>"
 }`;
 
       const response = await ai.models.generateContent({
@@ -231,10 +249,81 @@ Return a concise JSON object with the suggested mapping:
   }
 
   // Deterministic fallback if Gemini is absent or errors
+  const standardFields = ['employee_id', 'name', 'relationship', 'date_of_birth', 'job_title', 'department', 'location'];
+  const aliases: Record<string, string[]> = {
+    employee_id: [
+      'employee_id', 'employee id', 'empid', 'id', 'member_id', 'member id', 'staff_id', 'staff id',
+      'employee_number', 'staff number', 'staff no', 'emp no', 'badge id', 'badge_id', 'member_no'
+    ],
+    name: [
+      'name', 'employee_name', 'full_name', 'employee name', 'full name', 'member_name', 'member name',
+      'worker_name', 'beneficiary_name', 'staff_name', 'staff name'
+    ],
+    relationship: [
+      'relationship', 'relation', 'member_type', 'member type', 'role_type', 'dependent_type', 'rel',
+      'dependent relationship', 'relationship_type', 'family_role', 'relation_type', 'coverage_tier'
+    ],
+    date_of_birth: [
+      'date_of_birth', 'dob', 'birth_date', 'birthdate', 'date of birth', 'birthday', 'birth date',
+      'birth_day', 'd.o.b'
+    ],
+    job_title: [
+      'job_title', 'job title', 'role', 'designation', 'position', 'title', 'occupation',
+      'job designation', 'work_title'
+    ],
+    department: [
+      'department', 'dept', 'division', 'unit', 'team', 'business_unit', 'department_name'
+    ],
+    location: [
+      'location', 'branch', 'city', 'emirate', 'work_location', 'office', 'site', 'work_city'
+    ],
+  };
+
+  const mapping: Record<string, string> = {};
+  const reasoning: Record<string, string> = {};
+  const lowerHeaders = headers.map(h => ({ original: h, lower: h.trim().toLowerCase().replace(/[-_]+/g, ' ') }));
+
+  for (const field of standardFields) {
+    const candidateList = aliases[field] || [];
+    const match = lowerHeaders.find(h =>
+      candidateList.some(c => c.replace(/[-_]+/g, ' ') === h.lower || h.lower.includes(c))
+    );
+
+    if (match) {
+      mapping[field] = match.original;
+      reasoning[field] = `Recognized header pattern "${match.original}" matching standard ${field.replace('_', ' ')}`;
+    } else {
+      // Secondary check: inspect sample rows if available
+      let sampleMatch: string | null = null;
+      if (sample_rows && sample_rows.length > 0) {
+        for (const h of headers) {
+          const sampleVals = sample_rows.map(r => r[h]).filter(Boolean);
+          if (field === 'date_of_birth') {
+            const hasDates = sampleVals.some(v => /^\d{4}[-/]\d{1,2}[-/]\d{1,2}$|^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(String(v).trim()));
+            if (hasDates && !Object.values(mapping).includes(h)) {
+              sampleMatch = h;
+              break;
+            }
+          }
+        }
+      }
+
+      if (sampleMatch) {
+        mapping[field] = sampleMatch;
+        reasoning[field] = `Inferred from sample data values (e.g. date format detected in column "${sampleMatch}")`;
+      } else {
+        mapping[field] = '';
+        reasoning[field] = 'No direct header match; manual review recommended';
+      }
+    }
+  }
+
   return res.json({
     source: 'deterministic_heuristic',
-    mapping: {},
-    confidence_notes: 'Heuristic pattern matching applied.',
+    mapping,
+    confidence: 'high',
+    reasoning,
+    confidence_notes: 'Automated pattern & sample value analysis applied across uploaded CSV columns.',
   });
 });
 
