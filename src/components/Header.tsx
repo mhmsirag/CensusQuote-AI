@@ -10,7 +10,11 @@ import {
   Network,
   ShieldAlert,
   Zap,
+  Globe,
+  ShieldCheck,
+  FileCheck2,
 } from 'lucide-react';
+import { Language, TRANSLATIONS } from '../services/i18n';
 
 export type ActiveTab =
   | 'overview'
@@ -30,6 +34,10 @@ interface HeaderProps {
   exceptionCount: number;
   totalRecordsCount: number;
   onOpenBenchmark: () => void;
+  lang: Language;
+  setLang: (lang: Language) => void;
+  onOpenProveCalculation: () => void;
+  onOpenEvidence: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -38,66 +46,118 @@ export const Header: React.FC<HeaderProps> = ({
   exceptionCount,
   totalRecordsCount,
   onOpenBenchmark,
+  lang,
+  setLang,
+  onOpenProveCalculation,
+  onOpenEvidence,
 }) => {
+  const t = TRANSLATIONS[lang];
+  const isAr = lang === 'ar';
+
   const tabs: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { id: 'overview', label: '1. Overview', icon: <Layers className="w-4 h-4" /> },
+    { id: 'overview', label: t.tabOverview, icon: <Layers className="w-4 h-4" /> },
     {
       id: 'upload',
-      label: '2. Census Upload',
+      label: t.tabUpload,
       icon: <FileSpreadsheet className="w-4 h-4" />,
       badge: totalRecordsCount > 0 ? totalRecordsCount : undefined,
     },
-    { id: 'validation', label: '3. Data Validation', icon: <CheckCircle2 className="w-4 h-4" /> },
+    { id: 'validation', label: t.tabValidation, icon: <CheckCircle2 className="w-4 h-4" /> },
     {
       id: 'exceptions',
-      label: '4. Exception Review',
+      label: t.tabExceptions,
       icon: <AlertOctagon className="w-4 h-4" />,
       badge: exceptionCount > 0 ? exceptionCount : undefined,
     },
-    { id: 'quote_config', label: '5. Quote Config', icon: <Calculator className="w-4 h-4" /> },
-    { id: 'quote_comparison', label: '6. Quote Comparison', icon: <Layers className="w-4 h-4" /> },
-    { id: 'history', label: '7. Quote History', icon: <History className="w-4 h-4" /> },
-    { id: 'reports', label: '8. Reports & Exports', icon: <Download className="w-4 h-4" /> },
-    { id: 'architecture', label: '9. Integration Roadmap', icon: <Network className="w-4 h-4" /> },
-    { id: 'compliance', label: '10. UAE Compliance', icon: <ShieldAlert className="w-4 h-4" /> },
+    { id: 'quote_config', label: t.tabQuoteConfig, icon: <Calculator className="w-4 h-4" /> },
+    { id: 'quote_comparison', label: t.tabQuoteComparison, icon: <Layers className="w-4 h-4" /> },
+    { id: 'history', label: t.tabHistory, icon: <History className="w-4 h-4" /> },
+    { id: 'reports', label: t.tabReports, icon: <Download className="w-4 h-4" /> },
+    { id: 'architecture', label: t.tabArchitecture, icon: <Network className="w-4 h-4" /> },
+    { id: 'compliance', label: t.tabCompliance, icon: <ShieldAlert className="w-4 h-4" /> },
   ];
 
   return (
     <header className="bg-slate-900 border-b border-slate-800 text-white shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between py-4 border-b border-slate-800/80">
+        <div className="flex flex-col md:flex-row md:items-center justify-between py-4 border-b border-slate-800/80 gap-4">
+          {/* Logo & Title */}
           <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-tr from-teal-600 to-sky-500 flex items-center justify-center shadow-md">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-tr from-teal-600 to-sky-500 flex items-center justify-center shadow-md shrink-0">
               <Calculator className="w-6 h-6 text-white" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-white">CensusQuote AI</h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-bold tracking-tight text-white">{t.appTitle}</h1>
                 <span className="px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-teal-500/20 text-teal-300 border border-teal-500/30 rounded">
-                  Prototype
+                  {isAr ? 'نموذج أولي' : 'Prototype'}
                 </span>
                 <span className="hidden sm:inline-block text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                  Cigna Challenge Demo
+                  {t.cignaChallengeDemo}
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                SME Census-to-Quote Automation | Concept Prototype
+                {t.appSubtitle}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          {/* Top Actions: Language Switcher, Calculation Proof, Evidence, Benchmark */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Language Switcher */}
+            <div className="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+              <button
+                onClick={() => setLang('en')}
+                className={`px-2.5 py-1 text-xs font-bold rounded transition-colors flex items-center gap-1 cursor-pointer ${
+                  lang === 'en'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="Switch to English"
+              >
+                <span>EN</span>
+              </button>
+              <button
+                onClick={() => setLang('ar')}
+                className={`px-2.5 py-1 text-xs font-bold rounded transition-colors flex items-center gap-1 cursor-pointer ${
+                  lang === 'ar'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="التبديل إلى اللغة العربية"
+              >
+                <span>العربية</span>
+              </button>
+            </div>
+
+            {/* Prove Calculation Action */}
+            <button
+              onClick={onOpenProveCalculation}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/40 rounded shadow-sm transition-colors cursor-pointer"
+              title={isAr ? 'إثبات الحساب الرياضي ومراجعة التعرفة' : 'Prove the calculation against demo tariff'}
+            >
+              <Calculator className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">{isAr ? 'إثبات الحساب' : 'Prove Calculation'}</span>
+            </button>
+
+            {/* Verification Evidence Action */}
+            <button
+              onClick={onOpenEvidence}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/40 rounded shadow-sm transition-colors cursor-pointer"
+              title={isAr ? 'أدلة التقييم وقائمة التحقق' : 'Verification evidence & checklist'}
+            >
+              <FileCheck2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="hidden sm:inline">{isAr ? 'أدلة التقييم' : 'Verification Evidence'}</span>
+            </button>
+
+            {/* Benchmark Runner Action */}
             <button
               onClick={onOpenBenchmark}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 rounded shadow-sm transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 rounded shadow-sm transition-colors cursor-pointer"
             >
               <Zap className="w-3.5 h-3.5 text-teal-400" />
-              <span>Run Speed Benchmark</span>
+              <span>{t.runBenchmarkBtn}</span>
             </button>
-            <div className="hidden md:flex flex-col text-right text-xs text-slate-400">
-              <span className="text-slate-200 font-medium">Session In-Memory Mode</span>
-              <span>Synthetic records only</span>
-            </div>
           </div>
         </div>
 
